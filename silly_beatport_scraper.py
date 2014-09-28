@@ -46,7 +46,7 @@ __all__ = ["SillyBeatportScraper"]
 class SillyBeatportScraper(object):
     def __init__(self):
         # regex used to extract important details from file name
-        self.RE_EXTRACT = re.compile(r"([0-9]+)_([A-Za-z0-7_]+?)\.wav")
+        self.RE_EXTRACT = re.compile(r"([0-9]+)_([A-Za-z0-9_]+?)\.wav")
         
         # used to build a URL to find the track info
         self.URL_PREFIX = "http://www.beatport.com"
