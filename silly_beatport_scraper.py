@@ -49,7 +49,7 @@ class SillyBeatportScraper(object):
         self.RE_EXTRACT = re.compile(r"([0-9]+)_([A-Za-z0-9_]+?)\.wav")
         
         # used to build a URL to find the track info
-        self.URL_PREFIX = "http://www.beatport.com"
+        self.URL_PREFIX = "http://pro.beatport.com"
     
     def album_info_from_url(self, album_info_url):
         meta = {}
@@ -58,28 +58,34 @@ class SillyBeatportScraper(object):
         
         soup = BeautifulSoup(str(page_data))
         
+        meta['release_name'] = soup.find(
+            text="Release"
+        ).findNext('h1').contents[0]
+        
         meta['track_listing'] = [
             {
                 'track_number':
-                    int(x.td.findNext('span').contents[0]),
+                    int(x.find('div', {'class': 'buk-track-num'}).contents[0]),
                 'track_title':
-                    x.findAll('td')[1].a.findAll('span')[0].contents[0] + " (" +
-                    x.findAll('td')[1].a.findAll('span')[1].contents[0] + ")"
+                    x.find('div', {'class': 'buk-track-meta-parent'}).p.a.find('span', {'class': 'buk-track-primary-title'}).contents[0] + " (" +
+                    x.find('div', {'class': 'buk-track-meta-parent'}).p.a.find('span', {'class': 'buk-track-remixed'}).contents[0] + ")"
             } for x in
-            soup.h2.findNextSiblings('div')[-1].table.findAll('tr')
+            soup.h2.findNextSiblings('ul')[-1].findAll('li')
         ]
         
-        meta['album_info_parse'] = soup.find('table', {'class': 'meta-data'})
+        meta['album_info_parse'] = soup.find('ul', {'class': 'interior-release-chart-content-list'})
         meta['album_info'] = {}
-        for tr in meta['album_info_parse'].findAll('tr'):
-            
-            label = tr.find('td', {'class': 'meta-data-label'}).contents[0]
+        for li in meta['album_info_parse'].findAll('li'):
+            try:
+                label = li.find('span', {'class': 'category'}).contents[0]
+            except AttributeError:
+                continue
             
             value = None
             try:
-                value = tr.find('td', {'class': 'meta-data-value'}).contents[0]
+                value = li.find('span', {'class': 'value'}).contents[0]
             except TypeError:
-                value = tr.find('td', {'class': 'meta-data-value'}).a.contents[0]
+                pass # no longer used
             
             if label == 'Release Date':
                 date_particles = value.split('-')
@@ -89,17 +95,15 @@ class SillyBeatportScraper(object):
                 meta['album_info']['release-date']['year'] = int(date_particles[0])
                 meta['album_info']['release-date']['month'] = int(date_particles[1])
                 meta['album_info']['release-date']['day'] = int(date_particles[2])
-            elif label == 'Catalog #':
+            elif label == 'Catalog':
                 meta['album_info']['catalogue-number'] = value
             
         del meta['album_info_parse']
         
-        #//geo-media.beatport.com/image_size/500x500/8620536.jpg
+        the_div = soup.find('div', {'class': 'interior-release-chart-artwork-parent'})
+        the_image = the_div.find('img')['src']
         
-        the_span = soup.find('span', {'class': 'artwork'})
-        the_image = the_span.find('img')['data-lazy-load-src']
-        
-        meta['album_art_url'] = the_image.replace('212x212', '500x500')
+        meta['album_art_url'] = the_image
         
         return meta
     
@@ -113,15 +117,17 @@ class SillyBeatportScraper(object):
         
         page_url = self.URL_PREFIX + "/track/" + track_name + "/" + track_id
         
+        print(page_url)
+        
         page_data = urllib.urlopen(page_url).read()
         
         soup = BeautifulSoup(str(page_data))
         
         meta['track_title'] = "{} ({})".format(
-            soup.h2.contents[0], soup.h2.span.contents[0]
+            soup.h1.contents[0].strip(), soup.h1.span.contents[0]
         ) 
         meta['track_artists'] = [c.contents[0] for c in soup.find(
-            'span', {'class': 'artists-value h4 fontCondensed'}
+            'span', {'class': 'value'}
         ).findAll('a')]
         meta['track_artists'].sort()
         
@@ -130,16 +136,12 @@ class SillyBeatportScraper(object):
         meta['genre'] = soup.find(text="Genre").findNext('span').a.contents[0]
         
         meta['labels'] = soup.find(
-            'span', {'class': 'meta-label-value'}
-        ).a.contents[0]
-        
-        meta['release_name'] = soup.find(
-            text="Releases"
-        ).findNext('span').a.contents[0]
+            'li', {'class': 'interior-track-content-item interior-track-labels'}
+        ).find('span', {'class': 'value'}).a.contents[0]
         
         meta['release_info_url'] = self.URL_PREFIX + soup.find(
             text="Releases"
-        ).findNext('span').a['href']
+        ).findNext('a')['href']
         
         meta.update(self.album_info_from_url(meta['release_info_url']))
         

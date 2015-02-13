@@ -42,7 +42,7 @@ for f in all_files:
         print("")
 
         print("fetching album art (saved as: {})".format(f.replace('wav', 'jpg')))
-        urllib.urlretrieve("http:" + meta['album_art_url'], f.replace('wav', 'jpg'))
+        urllib.urlretrieve(meta['album_art_url'], f.replace('wav', 'jpg'))
         print("")
         
         print("converting to flac...")
